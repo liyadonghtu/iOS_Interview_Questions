@@ -89,6 +89,46 @@ void bublleSort(int *arr, int length) {
         } 
     }
 }
+
+/** 
+*    【冒泡排序2】：相邻元素两两比较，比较完一趟，最值出现在末尾
+*    第1趟：依次比较相邻的两个数，不断交换（小数放前，大数放后）逐个推进，最值最后出现在第n个元素位置
+*    第2趟：依次比较相邻的两个数，不断交换（小数放前，大数放后）逐个推进，最值最后出现在第n-1个元素位置
+*     ……   ……
+*    第n-1趟：依次比较相邻的两个数，不断交换（小数放前，大数放后）逐个推进，最值最后出现在第2个元素位置    
+*/
+
+void bubble_sort(){
+    int arry[] = {12, 13, 5, 3, 14, 1, 90, 11, 23, 9, 15, 99, 100, 96};
+    int i = 0, j = 0;
+    int temp = 0;
+    int number_of_times = 0;
+    int arry_length = sizeof(arry)/sizeof(int);
+    
+    int swap_flag = 0;
+    
+    for(i = 0; i < arry_length - 1; i++) {
+        swap_flag = 0;
+        for(j = arry_length - 1; j > i; j--) {
+            if (arry[j - 1] < arry[j]) {
+                temp = arry[j - 1];
+                arry[j - 1] = arry[j];
+                arry[j] = temp;
+                swap_flag = 1;
+            }
+            number_of_times++;
+        }
+        if (!swap_flag)
+            break;
+    }
+    
+    printf("i = %d,j = %d, arry_length = %d \n",i,j, arry_length);
+    for(i = 0; i < arry_length; i++)
+        printf("%d ", arry[i]);
+    printf("\n\n\n");
+    printf("bubble_sort_two: number of times = %d\n\n", number_of_times);
+}
+
  
 /**
  *	折半查找：优化查找时间（不用遍历全部数据）
