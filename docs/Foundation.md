@@ -1,8 +1,5 @@
 # Foundation
-## 1.nil、NIL、NSNULL 有什么区别？
-
-- nil、NIL 可以说是等价的，都代表内存中一块空地址。
-- NSNULL 代表一个指向 nil 的对象。
+## 1.nil、NIL、NSNULL、NULL 有什么区别？
 
 - nil 我们给对象赋值时一般会使用object = nil，表示我想把这个对象释放掉；
 或者对象由于某种原因，经过多次release，于是对象引用计数器为0了，系统将这块内存释放掉，这个时候这个对象为nil，我称它为“空对象”。（注意：我这里强调的是“空对象”，下面我会拿它和“值为空的对象”作对比！！！）所以对于这种空对象，所有关于retain的操作都会引起程序崩溃，例如字典添加键值或数组添加新原素等.
@@ -17,7 +14,47 @@ NSMutableArray是线程不安全的，当有多个线程同时对数组进行操
 
 - 线程锁：使用线程锁对数组读写时进行加锁
 
+```
+//可采用 NSLock 方式，简单来说就是操作前 lock 操作执行完 unlock。但注意，每个读写的地方都要保证用同一个 NSLock进行操作。
+   NSLock *arrayLock = [[NSLock alloc] init];
+    [...]
+    [arrayLock lock]; // NSMutableArray isn't thread-safe
+    [myMutableArray addObject:@"something"];
+    [myMutableArray removeObjectAtIndex:5];
+    [arrayLock unlock];
+
+```
+
 - 派发队列：在《Effective Objective-C 2.0..》书中第41条：多用派发队列，少用同步锁中指出：使用“串行同步队列”（serial synchronization queue），将读取操作及写入操作都安排在同一个队列里，即可保证数据同步。而通过并发队列，结合GCD的栅栏块（barrier）来不仅实现数据同步线程安全，还比串行同步队列方式更高效。
+```
+//利用 GCD 的 concurrent queue 来实现
+   dispatch_queue_t concurrent_queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+
+   For read:
+
+   (id)objectAtIndex:(NSUInteger)index {
+   __block id obj;
+   dispatch_sync(self.concurrent_queue, ^{
+   obj = [self.searchResult objectAtIndex:index];
+   });
+   return obj;
+   }
+   For insert:
+
+   (void)insertObject:(id)obj atIndex:(NSUInteger)index {
+   dispatch_barrier_async(self.concurrent_queue, ^{
+   [self.searchResult insertObject:obj atIndex:index];
+   });
+   }
+   For remove:
+
+   (void)removeObjectAtIndex:(NSUInteger)index {
+   dispatch_barrier_async(self.concurrent_queue, ^{
+   [self.searchResult removeObjectAtIndex:index];
+   });
+   }
+
+```
 
 ## 3.atomic 修饰的属性是绝对安全的吗？为什么？
 
