@@ -38,7 +38,10 @@
 
 ## 4.谈谈对UIResponder的理解
 
-UIResponder类是专门用来响应用户的操作处理各种事件的，包括触摸事件(Touch Events)、运动事件(Motion Events)、远程控制事件(Remote Control Events)。我们知道UIApplication、UIView、UIViewController这几个类是直接继承自UIResponder，所以这些类都可以响应事件。当然我们自定义的继承自UIView的View以及自定义的继承自UIViewController的控制器都可以响应事件。
+一个UIResponder类为那些需要响应并处理事件的对象定义了一组接口。  
+这些事件主要分为两类：触摸事件(touch events)和运动事件(motion events)。  
+UIResponder类为每两类事件都定义了一组接口，这个我们将在下面详细描述。  
+在UIKit中，UIApplication、UIView、UIViewController这几个类都是直接继承自UIResponder类。另外SpriteKit中的SKNode也是继承自UIResponder类。因此UIKit中的视图、控件、视图控制器，以及我们自定义的视图及视图控制器都有响应事件的能力。这些对象通常被称为响应对象，或者是响应者。  
 
 ## 5.loadView的作用？
 
@@ -61,6 +64,12 @@ drawRect 方法依赖 Core Graphics 框架来进行自定义的绘制
 
 - delegate.window 程序启动时设置的window对象。
 
-- keyWindow 这个属性保存了[windows]数组中的[UIWindow]对象，该对象最近被发送了[makeKeyAndVisible]消息
+- keyWindow 这个属性保存了[windows]数组中的[UIWindow]对象，该对象最近被发送了[makeKeyAndVisible]消息  
+
+其实我们平常写的最多的也就是keyWindow的写法  
+UIWindow *window = [UIApplication sharedApplication].keyWindow   
+
+可是有的地方我们还是要写成这样子的  
+UIWindow *window = [UIApplication sharedApplication].delegate.window   
 
 一般情况下 delegate.window 和 keyWindow 是同一个对象，但不能保证keyWindow就是delegate.window，因为keyWindow会因为makeKeyAndVisible而变化，例如，程序中添加了一个悬浮窗口，这个时候keywindow就会变化。
