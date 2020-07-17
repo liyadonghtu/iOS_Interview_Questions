@@ -7,17 +7,11 @@
 ## 2.isa指针的理解，对象的isa指针指向哪里？isa指针有哪两种类型？
 
 - isa 等价于 is kind of
-
-	实例对象的 isa 指向类对象
-
-	类对象的 isa 指向元类对象
-	
-	元类对象的 isa 指向元类的基类
-
-- isa 有两种类型
-
+	实例对象的 isa 指向类对象   
+	类对象的 isa 指向元类对象  
+	元类对象的 isa 指向元类的基类 
+- isa 有两种类型  
 	纯指针，指向内存地址
-	
 	NON_POINTER_ISA，除了内存地址，还存有一些其他信息
 
 ## 3.Objective-C 如何实现多重继承？
@@ -62,7 +56,12 @@ runtime 如何实现 weak 属性具体流程大致分为 3 步：
 
 - 遍历类的所有成员变量（修改textfield的占位文字颜色、字典转模型、自动归档解档）
 
-- 交换方法实现（交换系统的方法）
+- 交换方法实现（交换系统的方法）  
+ Runtime 运行时系统中最具争议的黑魔法：Method Swizzling（动态方法交换）
+ 
+ 注意：  
+ 1.应该只在 +load 中执行 Method Swizzling。  
+ 程序在启动的时候，会先加载所有的类，这时会调用每个类的 +load 方法。而且在整个程序运行周期只会调用一次（不包括外部显示调用)。所以在 +load 方法进行 Method Swizzling 再好不过了。
 
 - 利用消息转发机制解决方法找不到的异常问题
 
@@ -115,5 +114,73 @@ Objective-C是动态语言，每个方法在运行时会被动态转为消息发
 - 意思就是假设生物类(life)都拥有一个相同的方法-eat;那人类属于生物,猪也属于生物,都继承了life后,实现各自的eat,但是调用是我们只需调用各自的eat方法。也就是不同的对象以自己的方式响应了相同的消 息(响应了eat这个选择器)。因此也可以说,运行时机制是多态的基础.
 
 
+## 11.消息发送以及转发机制总结
 
+调用 [receiver selector]; 后，进行的流程：
+
+- 编译阶段：[receiver selector]; 方法被编译器转换为:  
+1. objc_msgSend(receiver，selector) （不带参数）  
+2. objc_msgSend(recevier，selector，org1，org2，…)（带参数）  
+
+- 运行时阶段：消息接受者 recevier 寻找对应的 selector。  
+通过 recevier 的 isa 指针 找到 recevier 的 class（类）；  
+在 Class（类） 的 cache（方法缓存） 的散列表中寻找对应的 IMP（方法实现）；  
+如果在 cache（方法缓存） 中没有找到对应的 IMP（方法实现） 的话，就继续在 Class（类） 的 method list（方法列表） 中找对应的 selector，如果找到，填充到 cache（方法缓存） 中，并返回 selector；  
+如果在 class（类） 中没有找到这个 selector，就继续在它的 superclass（父类）中寻找；  
+一旦找到对应的 selector，直接执行 recevier 对应 selector 方法实现的 IMP（方法实现）。  
+若找不到对应的 selector，Runtime 系统进入消息转发机制。 
+
+- 运行时消息转发阶段：
+1. 动态解析：通过重写 +resolveInstanceMethod: 或者 +resolveClassMethod:方法，利用 class_addMethod方法添加其他函数实现；  
+2. 消息接受者重定向：如果上一步没有添加其他函数实现，可在当前对象中利用 forwardingTargetForSelector: 方法将消息的接受者转发给其他对象；  
+3. 消息重定向：如果上一步返回值为 nil，则利用 methodSignatureForSelector:方法获取函数的参数和返回值类型。  
+如果 methodSignatureForSelector: 返回了一个 NSMethodSignature 对象（函数签名），Runtime 系统就会创建一个 NSInvocation 对象，并通过 forwardInvocation:消息通知当前对象，给予此次消息发送最后一次寻找 IMP 的机会。  
+如果 methodSignatureForSelector: 返回 nil。则 Runtime 系统会发出 doesNotRecognizeSelector: 消息，程序也就崩溃了。  
+ 
+ ## 12.Runtime基础知识
+ - objc_msgSend ：所有 Objective-C 方法调用在编译时都会转化为对 C 函数 objc_msgSend 的调用。objc_msgSend(receiver，selector); 是 [receiver selector]; 对应的 C 函数。
+ -  Class（类）  
+ 如下可以看出，objc_class 结构体 定义了很多变量：自身的所有实例变量（ivars）、所有方法定义（methodLists）、遵守的协议列表（protocols）等。objc_class 结构体 存放的数据称为 元数据（metadata）。objc_class 结构体 的第一个成员变量是 isa 指针，isa 指针 保存的是所属类的结构体的实例的指针，这里保存的就是 objc_class 结构体的实例指针，而实例换个名字就是 对象。换句话说，Class（类） 的本质其实就是一个对象，我们称之为 类对象。  
+ 
+ 在 objc/runtime.h 中，Class（类） 被定义为指向 objc_class 结构体 的指针，objc_class 结构体 的数据结构如下：
+ ``` 
+ 
+ /// An opaque type that represents an Objective-C class.
+ typedef struct objc_class *Class;
+
+ struct objc_class {
+     Class _Nonnull isa;                                          // objc_class 结构体的实例指针
+
+ #if !__OBJC2__
+     Class _Nullable super_class;                                 // 指向父类的指针
+     const char * _Nonnull name;                                  // 类的名字
+     long version;                                                // 类的版本信息，默认为 0
+     long info;                                                   // 类的信息，供运行期使用的一些位标识
+     long instance_size;                                          // 该类的实例变量大小;
+     struct objc_ivar_list * _Nullable ivars;                     // 该类的实例变量列表
+     struct objc_method_list * _Nullable * _Nullable methodLists; // 方法定义的列表
+     struct objc_cache * _Nonnull cache;                          // 方法缓存
+     struct objc_protocol_list * _Nullable protocols;             // 遵守的协议列表
+ #endif
+
+ };
+ 
+``` 
+
+- Object（对象）  
+接下来，我们再来看看 objc/objc.h 中关于 Object（对象） 的定义。Object（对象）被定义为 objc_object 结构体，其数据结构如下：
+
+``` 
+/// Represents an instance of a class.
+struct objc_object {
+    Class _Nonnull isa;       // objc_object 结构体的实例指针
+};
+
+/// A pointer to an instance of a class.
+typedef struct objc_object *id;
+
+``` 
+- Meta Class（元类）  ：就是一个类对象所属的 类。一个对象所属的类叫做 类对象，而一个类对象所属的类就叫做 元类。
+ 
+ 
 
